@@ -105,37 +105,37 @@ class Postnet(nn.Module):
         - Five 1-d convolution with 512 channels and kernel size 5
     """
 
-    def __init__(self, hparams):
+    def __init__(self, config):
         super(Postnet, self).__init__()
         self.convolutions = nn.ModuleList()
 
         self.convolutions.append(
             nn.Sequential(
-                ConvNorm(hparams.n_mel_channels, hparams.postnet_embedding_dim,
-                         kernel_size=hparams.postnet_kernel_size, stride=1,
-                         padding=int((hparams.postnet_kernel_size - 1) / 2),
+                ConvNorm(config["n_mel_channels"], config["postnet_embedding_dim"],
+                         kernel_size=config["postnet_kernel_size"], stride=1,
+                         padding=int((config["postnet_kernel_size"] - 1) / 2),
                          dilation=1, w_init_gain='tanh'),
-                nn.BatchNorm1d(hparams.postnet_embedding_dim))
+                nn.BatchNorm1d(config["postnet_embedding_dim"]))
         )
 
-        for i in range(1, hparams.postnet_n_convolutions - 1):
+        for i in range(1, config["postnet_n_convolutions"] - 1):
             self.convolutions.append(
                 nn.Sequential(
-                    ConvNorm(hparams.postnet_embedding_dim,
-                             hparams.postnet_embedding_dim,
-                             kernel_size=hparams.postnet_kernel_size, stride=1,
-                             padding=int((hparams.postnet_kernel_size - 1) / 2),
+                    ConvNorm(config["postnet_embedding_dim"],
+                             config["postnet_embedding_dim"],
+                             kernel_size=config["postnet_kernel_size"], stride=1,
+                             padding=int((config["postnet_kernel_size"] - 1) / 2),
                              dilation=1, w_init_gain='tanh'),
-                    nn.BatchNorm1d(hparams.postnet_embedding_dim))
+                    nn.BatchNorm1d(config["postnet_embedding_dim"]))
             )
 
         self.convolutions.append(
             nn.Sequential(
-                ConvNorm(hparams.postnet_embedding_dim, hparams.n_mel_channels,
-                         kernel_size=hparams.postnet_kernel_size, stride=1,
-                         padding=int((hparams.postnet_kernel_size - 1) / 2),
+                ConvNorm(config["postnet_embedding_dim"], config["n_mel_channels"],
+                         kernel_size=config["postnet_kernel_size"], stride=1,
+                         padding=int((config["postnet_kernel_size"] - 1) / 2),
                          dilation=1, w_init_gain='linear'),
-                nn.BatchNorm1d(hparams.n_mel_channels))
+                nn.BatchNorm1d(config["n_mel_channels"]))
             )
 
     def forward(self, x):
@@ -151,23 +151,23 @@ class Encoder(nn.Module):
         - Three 1-d convolution banks
         - Bidirectional LSTM
     """
-    def __init__(self, hparams):
+    def __init__(self, config):
         super(Encoder, self).__init__()
 
         convolutions = []
-        for _ in range(hparams.encoder_n_convolutions):
+        for _ in range(config["encoder_n_convolutions"]):
             conv_layer = nn.Sequential(
-                ConvNorm(hparams.encoder_embedding_dim,
-                         hparams.encoder_embedding_dim,
-                         kernel_size=hparams.encoder_kernel_size, stride=1,
-                         padding=int((hparams.encoder_kernel_size - 1) / 2),
+                ConvNorm(config["encoder_embedding_dim"],
+                         config["encoder_embedding_dim"],
+                         kernel_size=config["encoder_kernel_size"], stride=1,
+                         padding=int((config["encoder_kernel_size"] - 1) / 2),
                          dilation=1, w_init_gain='relu'),
-                nn.BatchNorm1d(hparams.encoder_embedding_dim))
+                nn.BatchNorm1d(config["encoder_embedding_dim"]))
             convolutions.append(conv_layer)
         self.convolutions = nn.ModuleList(convolutions)
 
-        self.lstm = nn.LSTM(hparams.encoder_embedding_dim,
-                            int(hparams.encoder_embedding_dim / 2), 1,
+        self.lstm = nn.LSTM(config["encoder_embedding_dim"],
+                            int(config["encoder_embedding_dim"] / 2), 1,
                             batch_first=True, bidirectional=True)
 
     def forward(self, x, input_lengths):
@@ -202,42 +202,42 @@ class Encoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, hparams):
+    def __init__(self, config):
         super(Decoder, self).__init__()
-        self.n_mel_channels = hparams.n_mel_channels
-        self.n_frames_per_step = hparams.n_frames_per_step
-        self.encoder_embedding_dim = hparams.encoder_embedding_dim
-        self.attention_rnn_dim = hparams.attention_rnn_dim
-        self.decoder_rnn_dim = hparams.decoder_rnn_dim
-        self.prenet_dim = hparams.prenet_dim
-        self.max_decoder_steps = hparams.max_decoder_steps
-        self.gate_threshold = hparams.gate_threshold
-        self.p_attention_dropout = hparams.p_attention_dropout
-        self.p_decoder_dropout = hparams.p_decoder_dropout
+        self.n_mel_channels = config["n_mel_channels"]
+        self.n_frames_per_step = config["n_frames_per_step"]
+        self.encoder_embedding_dim = config["encoder_embedding_dim"]
+        self.attention_rnn_dim = config["attention_rnn_dim"]
+        self.decoder_rnn_dim = config["decoder_rnn_dim"]
+        self.prenet_dim = config["prenet_dim"]
+        self.max_decoder_steps = config["max_decoder_steps"]
+        self.gate_threshold = config["gate_threshold"]
+        self.p_attention_dropout = config["p_attention_dropout"]
+        self.p_decoder_dropout = config["p_decoder_dropout"]
 
         self.prenet = Prenet(
-            hparams.n_mel_channels * hparams.n_frames_per_step,
-            [hparams.prenet_dim, hparams.prenet_dim])
+            config["n_mel_channels"] * config["n_frames_per_step"],
+            [config["prenet_dim"], config["prenet_dim"]])
 
         self.attention_rnn = nn.LSTMCell(
-            hparams.prenet_dim + hparams.encoder_embedding_dim,
-            hparams.attention_rnn_dim)
+            config["prenet_dim"] + config["encoder_embedding_dim"],
+            config["attention_rnn_dim"])
 
         self.attention_layer = Attention(
-            hparams.attention_rnn_dim, hparams.encoder_embedding_dim,
-            hparams.attention_dim, hparams.attention_location_n_filters,
-            hparams.attention_location_kernel_size)
+            config["attention_rnn_dim"], config["encoder_embedding_dim"],
+            config["attention_dim"], config["attention_location_n_filters"],
+            config["attention_location_kernel_size"])
 
         self.decoder_rnn = nn.LSTMCell(
-            hparams.attention_rnn_dim + hparams.encoder_embedding_dim,
-            hparams.decoder_rnn_dim, 1)
+            config["attention_rnn_dim"] + config["encoder_embedding_dim"],
+            config["decoder_rnn_dim"], 1)
 
         self.linear_projection = LinearNorm(
-            hparams.decoder_rnn_dim + hparams.encoder_embedding_dim,
-            hparams.n_mel_channels * hparams.n_frames_per_step)
+            config["decoder_rnn_dim"] + config["encoder_embedding_dim"],
+            config["n_mel_channels"] * config["n_frames_per_step"])
 
         self.gate_layer = LinearNorm(
-            hparams.decoder_rnn_dim + hparams.encoder_embedding_dim, 1,
+            config["decoder_rnn_dim"] + config["encoder_embedding_dim"], 1,
             bias=True, w_init_gain='sigmoid')
 
     def get_go_frame(self, memory):
@@ -455,20 +455,20 @@ class Decoder(nn.Module):
 
 
 class Tacotron2(nn.Module):
-    def __init__(self, hparams):
+    def __init__(self, config):
         super(Tacotron2, self).__init__()
-        self.mask_padding = hparams.mask_padding
-        self.fp16_run = hparams.fp16_run
-        self.n_mel_channels = hparams.n_mel_channels
-        self.n_frames_per_step = hparams.n_frames_per_step
+        self.mask_padding = config["mask_padding"]
+        self.fp16_run = config["fp16_run"]
+        self.n_mel_channels = config["n_mel_channels"]
+        self.n_frames_per_step = config["n_frames_per_step"]
         self.embedding = nn.Embedding(
-            hparams.n_symbols, hparams.symbols_embedding_dim)
-        std = sqrt(2.0 / (hparams.n_symbols + hparams.symbols_embedding_dim))
+            config["n_symbols"], config["symbols_embedding_dim"])
+        std = sqrt(2.0 / (config["n_symbols"] + config["symbols_embedding_dim"]))
         val = sqrt(3.0) * std  # uniform bounds for std
         self.embedding.weight.data.uniform_(-val, val)
-        self.encoder = Encoder(hparams)
-        self.decoder = Decoder(hparams)
-        self.postnet = Postnet(hparams)
+        self.encoder = Encoder(config)
+        self.decoder = Decoder(config)
+        self.postnet = Postnet(config)
 
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \

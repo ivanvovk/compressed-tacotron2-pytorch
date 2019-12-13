@@ -38,6 +38,7 @@ from torch.utils.data import DataLoader
 from glow import WaveGlow, WaveGlowLoss
 from mel2samp import Mel2Samp
 
+
 def load_checkpoint(checkpoint_path, model, optimizer):
     assert os.path.isfile(checkpoint_path)
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
@@ -49,6 +50,7 @@ def load_checkpoint(checkpoint_path, model, optimizer):
           checkpoint_path, iteration))
     return model, optimizer, iteration
 
+
 def save_checkpoint(model, optimizer, learning_rate, iteration, filepath):
     print("Saving model and optimizer state at iteration {} to {}".format(
           iteration, filepath))
@@ -59,8 +61,10 @@ def save_checkpoint(model, optimizer, learning_rate, iteration, filepath):
                 'optimizer': optimizer.state_dict(),
                 'learning_rate': learning_rate}, filepath)
 
+    
 def train(num_gpus, rank, group_name, output_directory, epochs, learning_rate,
-          sigma, iters_per_checkpoint, batch_size, seed, checkpoint_path):
+          sigma, iters_per_checkpoint, batch_size, seed, fp16_run,
+          checkpoint_path, with_tensorboard):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     #=====START: ADDED FOR DISTRIBUTED======
@@ -77,6 +81,10 @@ def train(num_gpus, rank, group_name, output_directory, epochs, learning_rate,
     #=====END:   ADDED FOR DISTRIBUTED======
 
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    if fp16_run:
+        from apex import amp
+        model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
 
     # Load checkpoint if one exists
     iteration = 0
@@ -102,6 +110,10 @@ def train(num_gpus, rank, group_name, output_directory, epochs, learning_rate,
             os.chmod(output_directory, 0o775)
         print("output directory", output_directory)
 
+    if with_tensorboard and rank == 0:
+        from tensorboardX import SummaryWriter
+        logger = SummaryWriter(os.path.join(output_directory, 'logs'))
+
     model.train()
     epoch_offset = max(0, int(iteration / len(train_loader)))
     # ================ MAIN TRAINNIG LOOP! ===================
@@ -120,10 +132,18 @@ def train(num_gpus, rank, group_name, output_directory, epochs, learning_rate,
                 reduced_loss = reduce_tensor(loss.data, num_gpus).item()
             else:
                 reduced_loss = loss.item()
-            loss.backward()
+
+            if fp16_run:
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss.backward()
+
             optimizer.step()
 
             print("{}:\t{:.9f}".format(iteration, reduced_loss))
+            if with_tensorboard and rank == 0:
+                logger.add_scalar('training_loss', reduced_loss, i + len(train_loader) * epoch)
 
             if (iteration % iters_per_checkpoint == 0):
                 if rank == 0:

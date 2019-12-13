@@ -1,5 +1,9 @@
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+plt.switch_backend('Agg')
 from scipy.io.wavfile import read
+
 import torch
 
 
@@ -10,14 +14,20 @@ def get_mask_from_lengths(lengths):
     return mask
 
 
-def load_wav_to_torch(full_path):
+def load_wav_to_torch(full_path, sr):
     sampling_rate, data = read(full_path)
-    return torch.FloatTensor(data.astype(np.float32)), sampling_rate
+    assert sr == sampling_rate, "{} SR doesn't match {} on path {}".format(
+        sr, sampling_rate, full_path)
+    return torch.FloatTensor(data.astype(np.float32))
 
 
-def load_filepaths_and_text(filename, split="|"):
+def load_filepaths_and_text(filename, sort_by_length, split="|"):
     with open(filename, encoding='utf-8') as f:
         filepaths_and_text = [line.strip().split(split) for line in f]
+
+    if sort_by_length:
+        filepaths_and_text.sort(key=lambda x: len(x[1]))
+
     return filepaths_and_text
 
 

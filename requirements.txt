@@ -1,0 +1,10 @@
+torch
+tensorboardX
+numpy
+scipy
+librosa
+lws
+inflect
+Unidecode
+matplotlib
+apex

@@ -11,13 +11,13 @@ class Tacotron2Logger(SummaryWriter):
 
     def log_training(self, reduced_loss, grad_norm, learning_rate, duration,
                      iteration):
-            self.add_scalar("training.loss", reduced_loss, iteration)
-            self.add_scalar("grad.norm", grad_norm, iteration)
-            self.add_scalar("learning.rate", learning_rate, iteration)
-            self.add_scalar("duration", duration, iteration)
+            self.add_scalar("training/loss", reduced_loss, iteration)
+            self.add_scalar("training/grad_norm", grad_norm, iteration)
+            self.add_scalar("training/learning_rate", learning_rate, iteration)
+            self.add_scalar("training/duration", duration, iteration)
 
     def log_validation(self, reduced_loss, model, y, y_pred, iteration):
-        self.add_scalar("validation.loss", reduced_loss, iteration)
+        self.add_scalar("validation/loss", reduced_loss, iteration)
         _, mel_outputs, gate_outputs, alignments = y_pred
         mel_targets, gate_targets = y
 
@@ -31,18 +31,18 @@ class Tacotron2Logger(SummaryWriter):
         self.add_image(
             "alignment",
             plot_alignment_to_numpy(alignments[idx].data.cpu().numpy().T),
-            iteration, dataformats='HWC')
+            iteration)
         self.add_image(
             "mel_target",
             plot_spectrogram_to_numpy(mel_targets[idx].data.cpu().numpy()),
-            iteration, dataformats='HWC')
+            iteration)
         self.add_image(
             "mel_predicted",
             plot_spectrogram_to_numpy(mel_outputs[idx].data.cpu().numpy()),
-            iteration, dataformats='HWC')
+            iteration)
         self.add_image(
             "gate",
             plot_gate_outputs_to_numpy(
                 gate_targets[idx].data.cpu().numpy(),
                 torch.sigmoid(gate_outputs[idx]).data.cpu().numpy()),
-            iteration, dataformats='HWC')
+            iteration)
