@@ -1,5 +1,5 @@
 # Compressed Text-to-speech (Tacotron 2 + WaveGlow)
-**Authors:** Ivan Vovk, Grigoriy Sitnikov, Vladimir Gogoryan, Dmitriy Smorchkov
+**Authors:** Ivan Vovk, Grigoriy Sotnikov, Vladimir Gogoryan, Dmitriy Smorchkov
 
 ## **Compression results**
 **Status:** in progress.
