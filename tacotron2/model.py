@@ -469,7 +469,11 @@ class Tacotron2(nn.Module):
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
         self.postnet = Postnet(config)
-
+        
+    def compress(self, methods=['svd_linear']):
+        if 'svd_linear' in methods:
+            pass
+        
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
             output_lengths = batch
