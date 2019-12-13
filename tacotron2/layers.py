@@ -2,17 +2,20 @@ import torch
 
 
 class TruncatedSVDLinear(torch.nn.Module):
-    def __init__(self, layer, use_bias=True):
+    def __init__(self, layer, explained_variance=0.7):
         """Applies SVD to the trained layer given as an input for class constructor."""
-        self.use_bias = use_bias
         
-        bias = layer.linear_layer.bias.data if self.use_bias else None
+        
+        self.bias = layer.linear_layer.bias
         W = layer.linear_layer.weight.data
         
         U, s, V = torch.svd(W)
+        
+        self.rank = (torch.cumsum(s / s.sum(), dim=-1) < explained_variance).int().sum()
+        U, s, V = U[:, :self.rank], s[:self.rank], V[:, :self.rank]
+        
         self.US = torch.nn.Parameter((U @ torch.diag(S)).transpose(1, 0))
         self.V = torch.nn.Parameter(V)
-        self.bias = torch.Parameter(bias) if self.use_bias else None
 
     def forward(self, x):
         return x @ self.V @ self.US + (self.bias if self.use_bias else 0)

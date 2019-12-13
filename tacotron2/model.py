@@ -470,18 +470,24 @@ class Tacotron2(nn.Module):
         self.decoder = Decoder(config)
         self.postnet = Postnet(config)
         
-    def compress_factorize(self, methods=['svd_linear']):
-        if 'svd_linear' in methods:
-            for module_name in tacotron2.state_dict().keys():
-                if 'linear_layer' in module_name:
-                    hierarchy = module_name.split('.')
-                    depth = hierarchy.index('linear_layer')
-                    module = self
-                    for i in range(depth):
-                        module = getattr(module, hierarchy[i])
-                        module.linear_layer = TruncatedSVDLinear(
-                            module.linear_layer
-                        )
+    def compress_factorize_linear(
+        self,
+        module_name,
+        method='svd',
+        explained_variance=0.7
+    ):
+        if module_name in tacotron2.state_dict().keys() \
+                and 'linear_layer' in module_name:
+            if method is 'svd':
+                hierarchy = module_name.split('.')
+                depth = hierarchy.index('linear_layer')
+                module = self
+                for i in range(depth):
+                    module = getattr(module, hierarchy[i])
+                    module.linear_layer = TruncatedSVDLinear(
+                        module.linear_layer, explained_variance=0.7
+                    )
+                return module
         
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
