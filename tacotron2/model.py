@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from torch import nn
 from torch.nn import functional as F
-from layers import ConvNorm, LinearNorm
+from layers import ConvNorm, LinearNorm, TruncatedSVDLinear
 from utils import to_gpu, get_mask_from_lengths
 
 
@@ -470,9 +470,18 @@ class Tacotron2(nn.Module):
         self.decoder = Decoder(config)
         self.postnet = Postnet(config)
         
-    def compress(self, methods=['svd_linear']):
+    def compress_factorize(self, methods=['svd_linear']):
         if 'svd_linear' in methods:
-            pass
+            for module_name in tacotron2.state_dict().keys():
+                if 'linear_layer' in module_name:
+                    hierarchy = module_name.split('.')
+                    depth = hierarchy.index('linear_layer')
+                    module = self
+                    for i in range(depth):
+                        module = getattr(module, hierarchy[i])
+                        module.linear_layer = TruncatedSVDLinear(
+                            module.linear_layer
+                        )
         
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
