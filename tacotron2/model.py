@@ -478,28 +478,29 @@ class Tacotron2(nn.Module):
         method='svd',
         explained_variance=0.7
     ):
+        original_nparams = self.nparams()
         if method == 'svd':
             for module_name in self.state_dict().keys():
-                if 'linear_layer' in module_name \
-                        and 'bias' not in module_name \
-                        and 'attention' not in module_name:
-                    print('compressing {}'.format(module_name), end='')
-                    try:
-                        hierarchy = module_name.split('.')
-                        depth = hierarchy.index('linear_layer')
-                        module = self
-                        for i in range(depth):
-                            print('.', end='')
-                            module = getattr(module, hierarchy[i])
-                        assert min(module.linear_layer.weight.data.shape) > 1
-                        module.linear_layer = TruncatedSVDLinear(
-                            module.linear_layer,
-                            explained_variance=explained_variance
-                        )
-                        print( 'Done.')
-                    except:
-                        print(' Failed.')
-                        continue
+                if 'bias' not in module_name:
+                    hierarchy = module_name.split('.')
+                    module = self
+                    for submodule_name in hierarchy:
+                        if type(module) == LinearNorm:
+                            try:
+                                print('compressing {}...'.format('.'.join(hierarchy)), end='')
+                                assert min(module.linear_layer.weight.data.shape) > 1
+                                module.linear_layer = TruncatedSVDLinear(
+                                    module.linear_layer,
+                                    explained_variance=explained_variance
+                                )
+                                print(' Done')
+                            except:
+                                print(' Failed')
+                            break
+                        module = getattr(module, submodule_name)
+            compressed_nparams = self.nparams()
+            print('\nSVD decreased number of parameters by {}%.'\
+                .format(100 * (1 - compressed_nparams / original_nparams)))
         
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \
