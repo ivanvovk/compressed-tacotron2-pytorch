@@ -469,25 +469,37 @@ class Tacotron2(nn.Module):
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
         self.postnet = Postnet(config)
+
+    def nparams(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)
         
-    def compress_factorize_linear(
+    def compress_factorize(
         self,
-        module_name,
         method='svd',
         explained_variance=0.7
     ):
-        if module_name in tacotron2.state_dict().keys() \
-                and 'linear_layer' in module_name:
-            if method is 'svd':
-                hierarchy = module_name.split('.')
-                depth = hierarchy.index('linear_layer')
-                module = self
-                for i in range(depth):
-                    module = getattr(module, hierarchy[i])
-                    module.linear_layer = TruncatedSVDLinear(
-                        module.linear_layer, explained_variance=0.7
-                    )
-                return module
+        if method == 'svd':
+            for module_name in self.state_dict().keys():
+                if 'linear_layer' in module_name \
+                        and 'bias' not in module_name \
+                        and 'attention' not in module_name:
+                    print('compressing {}'.format(module_name), end='')
+                    try:
+                        hierarchy = module_name.split('.')
+                        depth = hierarchy.index('linear_layer')
+                        module = self
+                        for i in range(depth):
+                            print('.', end='')
+                            module = getattr(module, hierarchy[i])
+                        assert min(module.linear_layer.weight.data.shape) > 1
+                        module.linear_layer = TruncatedSVDLinear(
+                            module.linear_layer,
+                            explained_variance=explained_variance
+                        )
+                        print( 'Done.')
+                    except:
+                        print(' Failed.')
+                        continue
         
     def parse_batch(self, batch):
         text_padded, input_lengths, mel_padded, gate_padded, \

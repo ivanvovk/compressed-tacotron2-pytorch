@@ -3,22 +3,23 @@ import torch
 
 class TruncatedSVDLinear(torch.nn.Module):
     def __init__(self, layer, explained_variance=0.7):
+        super(TruncatedSVDLinear, self).__init__()
         """Applies SVD to the trained layer given as an input for class constructor."""
         
-        
-        self.bias = layer.linear_layer.bias
-        W = layer.linear_layer.weight.data
+        self.bias = layer.bias
+        W = layer.weight.data
         
         U, s, V = torch.svd(W)
         
         self.rank = (torch.cumsum(s / s.sum(), dim=-1) < explained_variance).int().sum()
         U, s, V = U[:, :self.rank], s[:self.rank], V[:, :self.rank]
         
-        self.US = torch.nn.Parameter((U @ torch.diag(S)).transpose(1, 0))
+        self.US = torch.nn.Parameter((U @ torch.diag(s)).transpose(1, 0))
         self.V = torch.nn.Parameter(V)
 
     def forward(self, x):
-        return x @ self.V @ self.US + (self.bias if self.use_bias else 0)
+        return x @ self.V @ self.US \
+            + (self.bias if type(self.bias).__name__ != 'NoneType' else 0)
     
 
 class LinearNorm(torch.nn.Module):
