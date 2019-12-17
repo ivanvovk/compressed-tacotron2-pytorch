@@ -23,7 +23,7 @@
 
     "training_files": "filelists/train_shorter_than_13_sec_and_quantum_shorter_than_7_sec.txt",
     "validation_files": "filelists/test.txt",
-    "text_cleaners": "russian_cleaners",
+    "text_cleaners": "english_cleaners",
     "sort_by_length": false,
 
     "sampling_rate": 22050,
