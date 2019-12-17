@@ -60,15 +60,62 @@ class TruncatedSVDLinear(torch.nn.Module):
 
 
 from enum import IntEnum
-
 class DIMS(IntEnum):
     batch = 0
     seq = 1
     feature = 2
 
 
+class TTLSTMCell(torch.nn.Module):
+    def __init__(self, lstm_cell_layer, ranks_tt=70):
+        """LSTMCell class wrapper with tensor-trained weights."""
+        super(TTLSTMCell, self).__init__()
+
+        self.input_size = lstm_cell_layer.input_size
+        self.hidden_size = lstm_cell_layer.hidden_size
+        self.bias = lstm_cell_layer.bias
+
+        self.weight_ih = ParameterList([
+            Parameter(core) \
+                for core in tn.Tensor(lstm_cell_layer.weight_ih.data.T,
+                    ranks_tt=ranks_tt).cores
+        ])
+        self.weight_hh = ParameterList([
+            Parameter(core) \
+                for core in tn.Tensor(lstm_cell_layer.weight_hh.data.T,
+                    ranks_tt=ranks_tt).cores
+        ])
+        if self.bias:
+            self.bias_ih = Parameter(lstm_cell_layer.bias_ih.data)
+            self.bias_hh = Parameter(lstm_cell_layer.bias_hh.data)
+
+    def __restore_weight(self, cores):
+        return torch.einsum('amc,cna->mn', *cores)
+
+    def forward(self, x_t, states=None):
+        if states is None:
+            h_t, c_t = (torch.zeros(self.hidden_size).to(x_t.device),
+                        torch.zeros(self.hidden_size).to(x_t.device))
+        else:
+            h_t, c_t = states
+        
+        # batch the computations into a single matrix multiplication
+        gates = x_t @ self.__restore_weight(self.weight_ih) + self.bias_ih \
+            + h_t @ self.__restore_weight(self.weight_hh) + self.bias_hh
+        i_t, f_t, g_t, o_t = (
+            torch.sigmoid(gates[:, :self.hidden_size]), # input
+            torch.sigmoid(gates[:, self.hidden_size:self.hidden_size*2]), # forget
+            torch.tanh(gates[:, self.hidden_size*2:self.hidden_size*3]),
+            torch.sigmoid(gates[:, self.hidden_size*3:]), # output
+        )
+        c_t = f_t * c_t + i_t * g_t
+        h_t = o_t * torch.tanh(c_t)
+
+        return h_t, c_t
+
+
 class TTLSTM(torch.nn.Module):
-    def __init__(self, lstm_layer, ranks_tt=10):
+    def __init__(self, lstm_layer, ranks_tt=70):
         """LSTM class wrapper with tensor-trained weights."""
         super(TTLSTM, self).__init__()
         
@@ -121,28 +168,27 @@ class TTLSTM(torch.nn.Module):
         bs, seq_sz, _ = x.size()
         hidden_seq = []
         if init_states is None:
-            h_t, c_t = (torch.zeros(self.hidden_size).to(x.device), 
+            h_t, c_t = (torch.zeros(self.hidden_size).to(x.device),
                         torch.zeros(self.hidden_size).to(x.device))
         else:
             h_t, c_t = init_states
-         
-        HS = self.hidden_size
+        
         for t in range(seq_sz):
             x_t = x[:, t, :]
 
-            # batch the computations into a single matrix multiplication
             weight_ih = self.weight_ih if not backward else self.weight_ih_reverse
             weight_hh = self.weight_hh if not backward else self.weight_hh_reverse
             bias_ih = self.bias_ih if not backward else self.bias_ih_reverse
             bias_hh = self.bias_hh if not backward else self.bias_hh_reverse
 
+            # batch the computations into a single matrix multiplication
             gates = x_t @ self.__restore_weight(weight_ih) + bias_ih \
                 + h_t @ self.__restore_weight(weight_hh) + bias_hh
             i_t, f_t, g_t, o_t = (
-                torch.sigmoid(gates[:, :HS]), # input
-                torch.sigmoid(gates[:, HS:HS*2]), # forget
-                torch.tanh(gates[:, HS*2:HS*3]),
-                torch.sigmoid(gates[:, HS*3:]), # output
+                torch.sigmoid(gates[:, :self.hidden_size]), # input
+                torch.sigmoid(gates[:, self.hidden_size:self.hidden_size*2]), # forget
+                torch.tanh(gates[:, self.hidden_size*2:self.hidden_size*3]),
+                torch.sigmoid(gates[:, self.hidden_size*3:]), # output
             )
             c_t = f_t * c_t + i_t * g_t
             h_t = o_t * torch.tanh(c_t)
