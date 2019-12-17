@@ -3,7 +3,7 @@ import torch
 from torch.autograd import Variable
 from torch import nn
 from torch.nn import functional as F
-from layers import ConvNorm, LinearNorm, TruncatedSVDLinear
+from layers import ConvNorm, LinearNorm, TruncatedSVDLinear, TTLSTMCell, TTLSTM
 from utils import to_gpu, get_mask_from_lengths
 
 
@@ -475,31 +475,69 @@ class Tacotron2(nn.Module):
         
     def compress_factorize(
         self,
-        method='svd',
-        explained_variance=0.7
+        method='tt',
+        layers=['linear', 'rnn'],
+        config={'linear.explained_variance': 0.7,
+                'encoder.lstm.ranks_tt': 50,
+                'decoder.attention_rnn.ranks_tt': 100,
+                'decoder.decoder_rnn.ranks_tt': 100}
     ):
+        print('Starting Tacotron 2 compression...')
+
         original_nparams = self.nparams()
-        if method == 'svd':
-            for module_name in self.state_dict().keys():
-                if 'bias' not in module_name:
-                    hierarchy = module_name.split('.')
-                    module = self
-                    for submodule_name in hierarchy:
-                        if type(module) == LinearNorm:
-                            try:
-                                print('compressing {}...'.format('.'.join(hierarchy)), end='')
-                                assert min(module.linear_layer.weight.data.shape) > 1
-                                module.linear_layer = TruncatedSVDLinear(
-                                    module.linear_layer,
-                                    explained_variance=explained_variance
-                                )
-                                print(' Done')
-                            except:
-                                print(' Failed')
-                            break
-                        module = getattr(module, submodule_name)
+
+        if method == 'tt':
+            if 'linear' in layers:
+                print('compressing linear layers:')
+                for module_name in self.state_dict().keys():
+                    if 'bias' not in module_name:
+                        hierarchy = module_name.split('.')
+                        module = self
+                        for submodule_name in hierarchy:
+
+                            # Replacing default Linear layer with tensorized one
+                            if type(module) == LinearNorm:
+                                try:
+                                    print('compressing {}...'.format('.'.join(hierarchy)),
+                                        end=' ')
+                                    assert min(module.linear_layer.weight.data.shape) > 1
+                                    module.linear_layer = TruncatedSVDLinear(
+                                        module.linear_layer,
+                                        explained_variance=config['linear.explained_variance']
+                                    )
+                                    print('Done')
+                                except:
+                                    print('Failed')
+                                break
+                            module = getattr(module, submodule_name)
+
+            if 'rnn' in layers:
+                print('compressing rnns:')
+                # Replacing lstms with tensorized versions
+                print('compressing encoder.lstm...', end=' ')
+                try:
+                    self.encoder.lstm = TTLSTM(
+                        self.encoder.lstm, ranks_tt=config['encoder.lstm.ranks_tt'])
+                    print('Done')
+                except: print('Failed')
+
+                print('compressing decoder.attention_rnn...', end=' ')
+                try:
+                    self.decoder.attention_rnn = TTLSTMCell(
+                        self.decoder.attention_rnn, ranks_tt=config['decoder.attention_rnn.ranks_tt'])
+                    print('Done')
+                except: print('Failed')
+
+                print('compressing decoder.decoder_rnn...', end=' ')
+                try:
+                    self.decoder.decoder_rnn = TTLSTMCell(
+                        self.decoder.decoder_rnn, ranks_tt=config['decoder.decoder_rnn.ranks_tt'])
+                    print('Done')
+                except: print('Failed')
+
             compressed_nparams = self.nparams()
-            print('\nSVD decreased number of parameters by {}%.'\
+            print('Parameters number: {} -> {}'.format(original_nparams, compressed_nparams))
+            print('TT decreased model size by {}%'\
                 .format(100 * (1 - compressed_nparams / original_nparams)))
         
     def parse_batch(self, batch):
