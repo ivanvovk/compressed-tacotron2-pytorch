@@ -27,7 +27,7 @@ This project is based on the following NVIDIA's repositories:
 * [Tacotron 2](https://github.com/NVIDIA/tacotron2)
 * [WaveGlow](https://github.com/NVIDIA/waveglow)
 
-Trained models:
+Trained models (currently no available checkpoints for fine-tuned TT-applied models):
 * [Tacotron 2](https://drive.google.com/file/d/1c5ZTuT7J08wLUoVZ2KkUs_VdZuJ86ZqA/view)
 * [WaveGlow](https://ngc.nvidia.com/catalog/models/nvidia:waveglow_ljs_256channels)
 
