@@ -4,7 +4,7 @@
 ## **Compression results**
 **Status:** Tacotron 2 is successfully compressed by ~30% using Tensor Train technique.
 
-To compress model, initialize Tacotron 2 model and your config, load `state_dict` and run `model.compress_factorize(config['compress_config'])`.
+To compress model, initialize Tacotron 2 model and your config, load `state_dict` and run `model.compress_factorize(config=config['compress_config'])`.
 
 ### Few notes about compression.
 Compressing recurrent units in neural networks is a tricky task. And exactly LSTMs contain the most parameter space size and power in Tacotron 2. Error from pertubations made to the weights after low-rank decompositions will accumulate through the time and attention might easily got broken. In that case we've implemented Tensor Train application so that you can try to fine-tune your model.
