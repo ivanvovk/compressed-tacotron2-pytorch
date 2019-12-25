@@ -1,0 +1,12 @@
+**/*.ipynb_checkpoints
+**/*__pycache__
+**/*build
+**/*dist
+**/*src
+**/*.vscode
+**/*checkpoints
+**/*checkpts
+**/*gpu_logs
+**/*tt-pytorch-master
+**/*tntorch-master
+**/*intro.docx

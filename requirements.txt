@@ -1,8 +1,0 @@
-torch
-tensorboardX
-numpy
-scipy
-librosa
-inflect
-Unidecode
-matplotlib
