@@ -2,7 +2,7 @@
     "epochs": 1000,
     "batch_size": 8,
     "iters_per_grad_acc": 1,
-    "optimizer": "RAdam",
+    "optimizer": "Adam",
     "learning_rate": 1e-3,
     "grad_clip_thresh": 1,
     "weight_decay": 1e-6,
