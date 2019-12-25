@@ -17,7 +17,6 @@ from data import TextMelDataset, TextMelCollate
 from model import Tacotron2
 from loss_function import Tacotron2Loss
 from logger import Tacotron2Logger
-from radam import RAdam
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -75,9 +74,9 @@ def load_checkpoint(checkpoint_path, model, optimizer):
     checkpoint_dict = torch.load(checkpoint_path, map_location='cpu')
     model.load_state_dict(checkpoint_dict['state_dict'])
 
-    optimizer.load_state_dict(checkpoint_dict['optimizer'])
-    iteration = checkpoint_dict['iteration']
-    return model, optimizer, iteration
+    #optimizer.load_state_dict(checkpoint_dict['optimizer'])
+    #iteration = checkpoint_dict['iteration']
+    return model # , optimizer, iteration
 
 
 def save_checkpoint(model, optimizer, iteration, filepath):
@@ -138,7 +137,7 @@ def train(n_gpus, rank, group_name):
     model = Tacotron2(config).cuda()
     criterion = Tacotron2Loss()
     learning_rate = config['learning_rate']
-    optimizer = torch.optim.Adam[config['optimizer']](
+    optimizer = torch.optim.Adam(
         params=model.parameters(),
         lr=learning_rate,
         weight_decay=config['weight_decay']
@@ -164,13 +163,14 @@ def train(n_gpus, rank, group_name):
     if not config['warm_up_checkpoint'] is None:
         if rank == 0: print('Loading checkpoint from {}...'.format(config['warm_up_checkpoint']))
 
-        model, optimizer, iteration = load_checkpoint(
+        model = load_checkpoint(
             config['warm_up_checkpoint'], model, optimizer
         )
 
         iteration += 1  # next iteration is iteration + 1
         epoch_offset = max(0, int(iteration / len(train_loader)))
     
+    model.compress_factorize(config=config['compress_config'])
     model.train()
 
     # Main training loop
@@ -195,10 +195,6 @@ def train(n_gpus, rank, group_name):
             if iteration % config['iters_per_grad_acc'] == 0:
                 grad_norm = torch.nn.utils.clip_grad_norm_(
                     model.parameters(), config['grad_clip_thresh'])
-                if grad_norm > 1.5: # to avoid mistakes from data
-                    print('SKIPPED')
-                    model.zero_grad()
-                    continue
 
                 optimizer.step()
                 model.zero_grad()
