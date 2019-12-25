@@ -10,7 +10,7 @@ To compress model, initialize Tacotron 2 model and your config, load `state_dict
 Compressing recurrent units in neural networks is a tricky task. And exactly LSTMs contain the most parameter space size and power in Tacotron 2. Error from pertubations made to the weights after low-rank decompositions will accumulate through the time and attention might easily got broken. In that case we've implemented Tensor Train application so that you can try to fine-tune your model.
 
 ### Our results
-After TT application (compression factor was 26-30%) we continued Tacotron 2 training with new decomposed weights. After several days of convergence alignments became good again and TTS synthesis became stable.
+After TT application (compression factor was 26-30%) we continued Tacotron 2 training with new decomposed weights. After several days of convergence alignments became good again and TTS synthesis became stable. Moreover, as positive side-effects we can call 2x inference speed-up.
 ___
 ## **Installation**
 To install all necessary libraries, open the terminal, `cd` to the project folder and run the command `pip install -r requirements.txt`.
