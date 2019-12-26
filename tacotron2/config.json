@@ -1,15 +1,21 @@
 {
+    "compress_config": {
+        "linear.explained_variance": 0.99,
+        "encoder.lstm.ranks_tt": 350,
+        "decoder.attention_rnn.ranks_tt": 350,
+        "decoder.decoder_rnn.ranks_tt": 350
+    },
     "epochs": 1000,
-    "batch_size": 8,
-    "iters_per_grad_acc": 1,
-    "optimizer": "RAdam",
+    "batch_size": 16,
+    "iters_per_grad_acc": 2,
+    "optimizer": "Adam",
     "learning_rate": 1e-3,
     "grad_clip_thresh": 1,
     "weight_decay": 1e-6,
     "iters_per_validation": 100,
     "iters_per_checkpoint": 500,
-    "warm_up_checkpoint": "checkpts/kireev_1/continue_7/checkpoint_329000",
-    "output_directory": "checkpts/kireev_1/continue_8",
+    "warm_up_checkpoint": "../checkpts/tacotron2_statedict.pt",
+    "output_directory": "checkpts/",
     "log_directory": "logs",
     "seed": 1234,
     
@@ -21,9 +27,9 @@
     "cudnn_enabled": true,
     "cudnn_benchmark": true,
 
-    "training_files": "filelists/train_shorter_than_13_sec_and_quantum_shorter_than_7_sec.txt",
-    "validation_files": "filelists/test.txt",
-    "text_cleaners": "russian_cleaners",
+    "training_files": "filelists/train_ljspeech.txt",
+    "validation_files": "filelists/test_ljspeech.txt",
+    "text_cleaners": "english_cleaners",
     "sort_by_length": false,
 
     "sampling_rate": 22050,
